@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "QwP7rK1IOhw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\xvine\\Desktop\\c#_api_model\\SheetsProcessorAPI\\SheetsProcessorAPI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\xvine\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.5\\microsoft.aspnetcore.openapi.10.0.5.nupkg.sha512",
+    "C:\\Users\\xvine\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

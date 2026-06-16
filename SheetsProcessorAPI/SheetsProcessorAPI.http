@@ -1,0 +1,6 @@
+@SheetsProcessorAPI_HostAddress = http://localhost:5169
+
+GET {{SheetsProcessorAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
