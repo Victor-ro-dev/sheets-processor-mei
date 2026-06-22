@@ -1,16 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-public class AllowerdExtensionsAttribute : ActionFilterAttribute
+namespace SheetsProcessorApi.Filters;
+
+public class AllowedExtensionsAttribute : ActionFilterAttribute
 {
     private readonly string[] _extension;
 
-    public AllowerdExtensionsAttribute(string[] extensions)
+    public AllowedExtensionsAttribute(string[] extensions) // Argumentos que são colocados dentro do decorador do controller: [AllowedExtensionsAttribute(new string []{ ".csv", ".xlsx" })]
     {
         _extension = extensions;
     }
 
-    public override void OnActionExecuting(ActionExecutingContext context)
+    public override void OnActionExecuting(ActionExecutingContext context) // Contexto que vem da req: 
+    // public async Task<IActionResult> UploadStatement(IFormFile file)
     {
         var file = context.ActionArguments.Values.OfType<IFormFile>().FirstOrDefault();
 

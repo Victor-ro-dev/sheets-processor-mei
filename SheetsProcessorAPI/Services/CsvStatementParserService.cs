@@ -4,7 +4,7 @@ using SheetsProcessorApi.Interfaces;
 
 namespace SheetsProcessorApi.Services;
 
-public class CsvStatementParserService : IStatementsParseService
+public class CsvStatementParserService : IStatementParserService
 {
     public async Task<List<string>> ParseAsync(IFormFile file)
     {
