@@ -6,5 +6,5 @@ namespace SheetsProcessorApi.Interfaces;
 
 public interface IStatementParserFactory
 {
-    Task<List<Transaction>> ProcessFileAsync(IFormFile file, string extension);
+    Task<List<Transactions>> ProcessFileAsync(IFormFile file, string extension);
 }

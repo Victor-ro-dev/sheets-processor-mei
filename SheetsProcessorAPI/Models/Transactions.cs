@@ -9,18 +9,18 @@ public class Transactions
     [Key]
     public Guid Id {get; set;} = Guid.NewGuid();
     [Required]
-    public DateTime Data {get; set;}
+    public DateTime Date {get; set;}
     [Required]
     [Column(TypeName = "decimal(18, 2)")]
-    public decimal Valor {get; set;}
+    public decimal Value {get; set;}
     [Required]
     [MaxLength(255)]
-    public string? Descricao {get; set;}
+    public string Description {get; set;} = "Sem Descrição";
     [Required]
     [MaxLength(100)]
     public required string Hash {get; init;}
     [MaxLength(50)]
-    public string Categoria {get; set;} = "Não Categorizado";
-    public bool UsoPessoal {get; set;} = false;
+    public string Category {get; set;} = "Não Categorizado";
+    public bool PersonalUse {get; set;} = false;
 
 }

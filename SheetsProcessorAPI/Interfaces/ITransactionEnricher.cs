@@ -3,7 +3,7 @@ using SheetsProcessorApi.Models;
 
 namespace SheetsProcessorApi.Interfaces;
 
-public interface ITransactionEricher
+public interface ITransactionEnricher
 {
-    void EnrichTransactions(List<Transaction> transactions);
+    void EnrichTransactions(List<Transactions> transactions);
 }
