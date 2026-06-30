@@ -1,29 +1,41 @@
-using System.Diagnostics;
-using  Microsoft.AspNetCore.Http;
+// Arquivo: Services/XlsxParserStrategy.cs
+using Microsoft.AspNetCore.Http;
 using SheetsProcessorApi.Interfaces;
+using SheetsProcessorApi.Models;
+using ClosedXML.Excel;
 
 namespace SheetsProcessorApi.Services;
 
-public class CsvStatementParserService : IStatementParserService
+public class XlsxParserStrategy : IStatementParserStrategy
 {
-    public async Task<List<string>> ParseAsync(IFormFile file)
+    public bool CanHandle(string extension) => extension.ToLower() == ".xlsx" || extension.ToLower() == ".xls";
+
+    public async Task<List<Transactions>> ParseAsync(IFormFile file)
     {
-        var proccessedLines = new List<string>();
-
-        using var stream = file.OpenReadStream();
-        using var reader = new StreamReader(stream);
-
-        string? line;
-
-        while ((line = await reader.ReadLineAsync()) is not null)
+        return await Task.Run(() =>
         {
-            
-            if (!string.IsNullOrWhiteSpace(line))
-            {
-                proccessedLines.Add(line);
-            }
-        }
+            var transacoes = new List<Transactions>();
 
-        return proccessedLines;
+            using var stream = file.OpenReadStream();
+            using var workbook = new XLWorkbook(stream);
+            var worksheet = workbook.Worksheets.First();
+            var linhas = worksheet.RowsUsed().Skip(1);
+
+            foreach (var linha in linhas)
+            {
+                var data = linha.Cell(1).GetDateTime();
+                var valor = linha.Cell(2).GetValue<decimal>();
+                var descricao = linha.Cell(3).GetString();
+
+                transacoes.Add(new Transactions
+                {
+                    Date = data,
+                    Value = valor,
+                    Description = descricao,
+                    Hash = $"{data:dd/MM/yyyy}_{valor}_{descricao}"
+                });
+            }
+            return transacoes;
+        });
     }
 }
