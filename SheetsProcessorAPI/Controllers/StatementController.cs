@@ -12,48 +12,38 @@ namespace SheetsProcessorApi.Controllers;
 [Route("api/[controller]")] // Rota base: /api/statement
 public class StatementController : ControllerBase
 {
-    private readonly IStatementParserFactory _parserFactory;
-    private readonly ITransactionEnricher _enricher;
+    private readonly IStatementService _statementService;
 
-    // A mágica da Injeção de Dependência acontece aqui
-    public StatementController(
-        IStatementParserFactory parserFactory, 
-        ITransactionEnricher enricher)
+    /// <summary>
+    /// Controller recebe APENAS o Serviço de Orquestração.
+    /// Não conhece Factory, Enricher, Parser ou lógica de BD.
+    /// </summary>
+    public StatementController(IStatementService statementService)
     {
-        _parserFactory = parserFactory;
-        _enricher = enricher;
+        _statementService = statementService;
     }
 
     [HttpPost("upload")]
     [AllowedExtensions(new string[] { ".csv", ".xlsx" })]
     public async Task<IActionResult> UploadStatement(IFormFile file)
     {
-        // Validação básica de segurança (evita arquivos vazios)
-        if (file == null || file.Length == 0)
+        try
         {
-            return BadRequest(ApiResponse<string>.Fail(null, "Nenhum arquivo enviado ou arquivo vazio."));
-        }
+            // Delega TODO o processamento para o serviço
+            // Controller é apenas um "gatilho" HTTP
+            var transactions = await _statementService.ProcessStatementAsync(file);
 
-        // Pega a extensão (.csv ou .xlsx) para o roteamento
-        var extension = Path.GetExtension(file.FileName);
-
-        try 
-        {
-            // PASSO 1: Extração (I/O Bound - Assíncrono)
-            // A Thread é liberada enquanto o disco/rede lê o arquivo
-            List<Transactions> transactions = await _parserFactory.ProcessFileAsync(file, extension);
-
-            // PASSO 2: Transformação (CPU Bound - Síncrono)
-            // Processamento na memória RAM em nanossegundos
-            _enricher.EnrichTransactions(transactions);
-
-            // PASSO 3: Resposta Padronizada
             var msg = $"Processado com sucesso. {transactions.Count} transações categorizadas.";
             return Ok(ApiResponse<List<Transactions>>.Ok(transactions, msg));
         }
         catch (NotSupportedException ex)
         {
-            // Se escapar do Decorator, o throw da Factory é capturado aqui
+            // Extensão não suportada
+            return BadRequest(ApiResponse<string>.Fail(null, ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            // Validação de arquivo
             return BadRequest(ApiResponse<string>.Fail(null, ex.Message));
         }
         catch (Exception ex)
