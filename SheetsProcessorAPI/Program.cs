@@ -1,35 +1,86 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using SheetsProcessorApi.Data;
 using SheetsProcessorApi.Interfaces;
 using SheetsProcessorApi.Services;
-// using SheetsProcessorApi.Data; // Substitua pela pasta onde criar seu AppDbContext
 
 var builder = WebApplication.CreateBuilder(args);
 
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 builder.Services.AddControllers();
 
-// ====================================================================
-// CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
-// ====================================================================
-// 1. Buscamos a string de conexão de dentro do appsettings.json
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = ResolveConnectionString(builder.Configuration);
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
 
-// 2. Registramos o DbContext usando o motor do PostgreSQL
-// builder.Services.AddDbContext<AppDbContext>(options =>
-//     options.UseNpgsql(connectionString));
+var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
 
-// ====================================================================
-// INJEÇÃO DE DEPENDÊNCIAS - ORQUESTRAÇÃO DO PIPELINE
-// ====================================================================
-// Strategies (implementações de parsing)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+        else
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+    });
+});
+
 builder.Services.AddScoped<IStatementParserStrategy, CsvParserStrategy>();
 builder.Services.AddScoped<IStatementParserStrategy, XlsxParserStrategy>();
-
-// Enricher (lógica de negócio)
 builder.Services.AddScoped<ITransactionEnricher, TransactionEnricher>();
-
-// Serviço de orquestração do pipeline (o que o Controller chama)
 builder.Services.AddScoped<IStatementService, StatementService>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+}
+
+app.UseCors("FrontendPolicy");
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
+
 app.Run();
+
+static string ResolveConnectionString(IConfiguration configuration)
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrWhiteSpace(databaseUrl) &&
+        (databaseUrl.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+         databaseUrl.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)))
+    {
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var connBuilder = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.Port > 0 ? uri.Port : 5432,
+            Database = uri.AbsolutePath.TrimStart('/'),
+            Username = Uri.UnescapeDataString(userInfo[0]),
+            Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
+            SslMode = SslMode.Require
+        };
+        return connBuilder.ConnectionString;
+    }
+
+    return configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Database connection string not configured.");
+}
