@@ -1,55 +1,77 @@
-// Arquivo: Controllers/StatementController.cs
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
-using SheetsProcessorApi.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 using SheetsProcessorApi.DTOs;
-using SheetsProcessorApi.Models;
 using SheetsProcessorApi.Filters;
+using SheetsProcessorApi.Interfaces;
+using SheetsProcessorApi.Models;
 
 namespace SheetsProcessorApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")] // Rota base: /api/statement
+[Route("api/[controller]")]
 public class StatementController : ControllerBase
 {
     private readonly IStatementService _statementService;
 
-    /// <summary>
-    /// Controller recebe APENAS o Serviço de Orquestração.
-    /// Não conhece Factory, Enricher, Parser ou lógica de BD.
-    /// </summary>
     public StatementController(IStatementService statementService)
     {
         _statementService = statementService;
     }
 
     [HttpPost("upload")]
-    [AllowedExtensions(new string[] { ".csv", ".xlsx" })]
+    [AllowedExtensions(new[] { ".csv", ".xlsx" })]
     public async Task<IActionResult> UploadStatement(IFormFile file)
     {
         try
         {
-            // Delega TODO o processamento para o serviço
-            // Controller é apenas um "gatilho" HTTP
-            var transactions = await _statementService.ProcessStatementAsync(file);
+            var result = await _statementService.ProcessStatementAsync(file);
 
-            var msg = $"Processado com sucesso. {transactions.Count} transações categorizadas.";
-            return Ok(ApiResponse<List<Transactions>>.Ok(transactions, msg));
+            var msg = result.SkippedDuplicatesCount > 0
+                ? $"Processado com sucesso. {result.InsertedCount} novas transações salvas ({result.SkippedDuplicatesCount} duplicadas ignoradas)."
+                : $"Processado com sucesso. {result.InsertedCount} transações categorizadas.";
+
+            return Ok(ApiResponse<UploadResultDto>.Ok(result, msg));
         }
         catch (NotSupportedException ex)
         {
-            // Extensão não suportada
             return BadRequest(ApiResponse<string>.Fail(null, ex.Message));
         }
         catch (ArgumentException ex)
         {
-            // Validação de arquivo
             return BadRequest(ApiResponse<string>.Fail(null, ex.Message));
         }
         catch (Exception ex)
         {
-            // Rede de segurança para arquivos corrompidos (ex: data em formato errado)
             return StatusCode(500, ApiResponse<string>.Fail(null, $"Erro interno ao processar o arquivo: {ex.Message}"));
         }
+    }
+
+    [HttpGet("transactions")]
+    public async Task<IActionResult> GetTransactions(
+        [FromQuery] string? category,
+        [FromQuery] bool? personalUse,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _statementService.GetTransactionsAsync(category, personalUse, search, page, pageSize);
+        return Ok(ApiResponse<PagedResultDto<Transactions>>.Ok(result));
+    }
+
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary()
+    {
+        var summary = await _statementService.GetSummaryAsync();
+        return Ok(ApiResponse<StatementSummaryDto>.Ok(summary));
+    }
+
+    [HttpDelete("transactions/{id:guid}")]
+    public async Task<IActionResult> DeleteTransaction(Guid id)
+    {
+        var deleted = await _statementService.DeleteTransactionAsync(id);
+        if (!deleted)
+            return NotFound(ApiResponse<string>.Fail(null, "Transação não encontrada."));
+
+        return Ok(ApiResponse<string>.Ok("Removida", "Transação removida com sucesso."));
     }
 }
