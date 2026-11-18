@@ -116,8 +116,17 @@ public class StatementService : IStatementService
 
     public async Task<StatementSummaryDto> GetSummaryAsync()
     {
-        var categoryGroups = await _context.Transactions
+        var rows = await _context.Transactions
             .AsNoTracking()
+            .Select(t => new { t.Category, t.Value, t.PersonalUse })
+            .ToListAsync();
+
+        if (rows.Count == 0)
+        {
+            return new StatementSummaryDto(0, 0m, 0m, 0m, 0m, 0m, new List<CategoryBreakdownDto>());
+        }
+
+        var categoryGroups = rows
             .GroupBy(t => t.Category)
             .Select(g => new CategoryBreakdownDto(
                 g.Key,
@@ -125,34 +134,21 @@ public class StatementService : IStatementService
                 g.Sum(t => t.Value)
             ))
             .OrderByDescending(c => c.Count)
-            .ToListAsync();
+            .ToList();
 
-        var totals = await _context.Transactions
-            .AsNoTracking()
-            .GroupBy(_ => 1)
-            .Select(g => new
-            {
-                TotalCount = g.Count(),
-                TotalRevenue = g.Where(t => t.Value > 0).Sum(t => t.Value),
-                TotalExpenses = g.Where(t => t.Value < 0).Sum(t => t.Value),
-                NetBalance = g.Sum(t => t.Value),
-                TaxPaid = g.Where(t => t.Category == "Imposto MEI").Sum(t => Math.Abs(t.Value)),
-                PersonalExpenses = g.Where(t => t.PersonalUse).Sum(t => Math.Abs(t.Value))
-            })
-            .FirstOrDefaultAsync();
-
-        if (totals is null)
-        {
-            return new StatementSummaryDto(0, 0m, 0m, 0m, 0m, 0m, categoryGroups);
-        }
+        var totalRevenue = rows.Where(t => t.Value > 0).Sum(t => t.Value);
+        var totalExpenses = rows.Where(t => t.Value < 0).Sum(t => Math.Abs(t.Value));
+        var netBalance = rows.Sum(t => t.Value);
+        var taxPaid = rows.Where(t => t.Category == "Imposto MEI").Sum(t => Math.Abs(t.Value));
+        var personalExpenses = rows.Where(t => t.PersonalUse).Sum(t => Math.Abs(t.Value));
 
         return new StatementSummaryDto(
-            totals.TotalCount,
-            totals.TotalRevenue,
-            Math.Abs(totals.TotalExpenses),
-            totals.NetBalance,
-            totals.TaxPaid,
-            totals.PersonalExpenses,
+            rows.Count,
+            totalRevenue,
+            totalExpenses,
+            netBalance,
+            taxPaid,
+            personalExpenses,
             categoryGroups
         );
     }
