@@ -33,10 +33,9 @@ public class TransactionEnricher : ITransactionEnricher
         transaction.Date.DayOfWeek == DayOfWeek.Sunday;
 
         if (isWeekend &&
-        transaction.Description.Contains("IFOOD", StringComparison.OrdinalIgnoreCase) ||
-        transaction.Description.Contains("UBER", StringComparison.OrdinalIgnoreCase) ||
-        transaction.Description.Contains("MCDONALDS", StringComparison.OrdinalIgnoreCase)
-        )
+            (transaction.Description.Contains("IFOOD", StringComparison.OrdinalIgnoreCase) ||
+             transaction.Description.Contains("UBER", StringComparison.OrdinalIgnoreCase) ||
+             transaction.Description.Contains("MCDONALDS", StringComparison.OrdinalIgnoreCase)))
         {
             
             transaction.Category = "Gasto Pessoal";

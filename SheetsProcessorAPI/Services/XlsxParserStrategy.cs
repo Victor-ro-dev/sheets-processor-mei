@@ -23,9 +23,9 @@ public class XlsxParserStrategy : IStatementParserStrategy
 
             foreach (var linha in linhas)
             {
-                var data = linha.Cell(1).GetDateTime();
+                var data = DateTime.SpecifyKind(linha.Cell(1).GetDateTime(), DateTimeKind.Utc);
                 var valor = linha.Cell(2).GetValue<decimal>();
-                var descricao = linha.Cell(3).GetString();
+                var descricao = linha.Cell(3).GetString().Trim();
 
                 transacoes.Add(new Transactions
                 {

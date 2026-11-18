@@ -28,14 +28,22 @@ public class CsvParserStrategy : IStatementParserStrategy
             if (string.IsNullOrWhiteSpace(line)) continue;
             var columns = line.Split(";");
 
-            if (columns.Length >=3)
+            if (columns.Length >= 3)
             {
+                var dateText = columns[0].Trim();
+                var valueText = columns[1].Trim();
+                var description = columns[2].Trim();
+
+                var parsedDate = DateTime.ParseExact(dateText, "dd/MM/yyyy", CultureInfo.InvariantCulture);
+                var utcDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
+                var parsedValue = decimal.Parse(valueText, CultureInfo.InvariantCulture);
+
                 transactions.Add(new Transactions
                 {
-                    Date = DateTime.ParseExact(columns[0], "dd/MM/yyyy", CultureInfo.InstalledUICulture),
-                    Value = decimal.Parse(columns[1], CultureInfo.InvariantCulture),
-                    Description = columns[2],
-                    Hash = $"{columns[0]}_{columns[1]}_{columns[2]}"
+                    Date = utcDate,
+                    Value = parsedValue,
+                    Description = description,
+                    Hash = $"{dateText}_{parsedValue.ToString(CultureInfo.InvariantCulture)}_{description}"
                 });
             }
         }
