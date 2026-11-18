@@ -14,9 +14,19 @@ if (!string.IsNullOrWhiteSpace(port))
 
 builder.Services.AddControllers();
 
-var connectionString = ResolveConnectionString(builder.Configuration);
+var connectionString = ResolvePostgresConnectionString(builder.Configuration);
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        var sqlitePath = Path.Combine(Path.GetTempPath(), "sheets_processor.db");
+        options.UseSqlite($"Data Source={sqlitePath}");
+    }
+});
 
 var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]
     ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -60,7 +70,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 
 app.Run();
 
-static string ResolveConnectionString(IConfiguration configuration)
+static string? ResolvePostgresConnectionString(IConfiguration configuration)
 {
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
     if (!string.IsNullOrWhiteSpace(databaseUrl) &&
@@ -81,6 +91,5 @@ static string ResolveConnectionString(IConfiguration configuration)
         return connBuilder.ConnectionString;
     }
 
-    return configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Database connection string not configured.");
+    return configuration.GetConnectionString("DefaultConnection");
 }
